@@ -14,10 +14,10 @@
 #include "Json_storage.hpp"
 #include "Suggestions_collection.hpp"
 
-namespace beast = boost::beast;   
-namespace http = beast::http;      
-namespace net = boost::asio;      
-using tcp = boost::asio::ip::tcp;  
+namespace beast = boost::beast;
+namespace http = beast::http;
+namespace net = boost::asio;
+using tcp = boost::asio::ip::tcp;
 std::string make_json(const json& data) {
   std::stringstream ss;
   if (data.is_null())
