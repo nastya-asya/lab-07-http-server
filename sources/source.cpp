@@ -5,19 +5,21 @@
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
 #include <boost/config.hpp>
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <thread>
 
-#include "Json_storage.hpp"
 #include "Suggestions_collection.hpp"
+#include "Json_storage.hpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
 using tcp = boost::asio::ip::tcp;
+
 std::string make_json(const json& data) {
   std::stringstream ss;
   if (data.is_null())
@@ -26,7 +28,6 @@ std::string make_json(const json& data) {
     ss << std::setw(4) << data;
   return ss.str();
 }
-
 template <class Body, class Allocator, class Send>
 void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req,
                     Send&& send, const std::shared_ptr<std::timed_mutex>& mutex,
@@ -41,7 +42,6 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req,
     res.prepare_payload();
     return res;
   };
-
   auto const not_found = [&req](beast::string_view target) {
     http::response<http::string_body> res{http::status::not_found,
                                           req.version()};
@@ -109,11 +109,10 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req,
 void fail(beast::error_code ec, char const* what) {
   std::cerr << what << ": " << ec.message() << "\n";
 }
-
 template <class Stream>
 struct send_lambda {
   Stream& stream_;
-  [[maybe_unused]] bool& close_;
+  bool& close_;
   beast::error_code& ec_;
 
   explicit send_lambda(Stream& stream, bool& close, beast::error_code& ec)
@@ -122,7 +121,6 @@ struct send_lambda {
   template <bool isRequest, class Body, class Fields>
   void operator()(http::message<isRequest, Body, Fields>&& msg) const {
     close_ = msg.need_eof();
-
     http::serializer<isRequest, Body, Fields> sr{msg};
     http::write(stream_, sr, ec_);
   }
@@ -133,20 +131,16 @@ void do_session(net::ip::tcp::socket& socket,
                 const std::shared_ptr<std::timed_mutex>& mutex) {
   bool close = false;
   beast::error_code ec;
-
   beast::flat_buffer buffer;
-
   send_lambda<tcp::socket> lambda{socket, close, ec};
   for (;;) {
     http::request<http::string_body> req;
     http::read(socket, buffer, req, ec);
     if (ec == http::error::end_of_stream) break;
     if (ec) return fail(ec, "read");
-
     handle_request(std::move(req), lambda, mutex, collection);
     if (ec) return fail(ec, "write");
   }
-
   socket.shutdown(tcp::socket::shutdown_send, ec);
 }
 
@@ -154,7 +148,7 @@ void suggestion_updater(
     const std::shared_ptr<Json_storage>& storage,
     const std::shared_ptr<Suggestions_collection>& suggestions,
     const std::shared_ptr<std::timed_mutex>& mutex) {
-  using std::chrono_literals::operator""min;
+  using namespace std::literals::chrono_literals;
   for (;;) {
     mutex->lock();
     storage->Load();
@@ -164,12 +158,12 @@ void suggestion_updater(
     std::this_thread::sleep_for(15min);
   }
 }
+
 int Run_server(int argc, char* argv[]) {
   std::shared_ptr<std::timed_mutex> mutex =
       std::make_shared<std::timed_mutex>();
   std::shared_ptr<Json_storage> storage = std::make_shared<Json_storage>(
-      "/home/nastya-asya/workspace/lab-07-http-server/"
-      "suggestions.json");
+      "/home/nastya_asya/Рабочий стол/lab-07-http-server/suggestions.json");
   std::shared_ptr<Suggestions_collection> suggestions =
       std::make_shared<Suggestions_collection>();
   try {
@@ -183,15 +177,12 @@ int Run_server(int argc, char* argv[]) {
     auto const port = static_cast<uint16_t>(std::atoi(argv[2]));
 
     net::io_context ioc{1};
-
     tcp::acceptor acceptor{ioc, {address, port}};
 
     std::thread{suggestion_updater, storage, suggestions, mutex}.detach();
     for (;;) {
       tcp::socket socket{ioc};
-
       acceptor.accept(socket);
-
       std::thread{std::bind(&do_session, std::move(socket), suggestions, mutex)}
           .detach();
     }
@@ -199,4 +190,8 @@ int Run_server(int argc, char* argv[]) {
     std::cerr << e.what() << '\n';
     return EXIT_FAILURE;
   }
+}
+// ./cmake-build-debug/tests 0.0.0.0 8080
+int main(int argc, char* argv[]) {
+  return Run_server(argc, argv);
 }
