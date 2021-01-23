@@ -12,8 +12,8 @@
 #include <string>
 #include <thread>
 
-#include "Suggestions_collection.hpp"
 #include "Json_storage.hpp"
+#include "Suggestions_collection.hpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -192,6 +192,6 @@ int Run_server(int argc, char* argv[]) {
   }
 }
 // ./cmake-build-debug/tests 0.0.0.0 8080
-int main(int argc, char* argv[]) {
+ int main(int argc, char* argv[]) {
   return Run_server(argc, argv);
 }

@@ -1,10 +1,11 @@
 // Copyright 2020 Anastasiya Smirnova nastya.asya08@yandex.ru
 
+#include "Json_storage.hpp"
+
 #include <exception>
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include "Json_storage.hpp"
 
 Json_storage::Json_storage(const std::string& filename) : filename_(filename) {}
 json Json_storage::get_storage() const { return storage_; }
